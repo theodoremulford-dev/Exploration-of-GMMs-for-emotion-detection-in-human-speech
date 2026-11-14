@@ -11,6 +11,6 @@ env/
 # VSCode Settings
 .vscode/
 
-# RAVDESS files
+# RAVDESS audio files
 Audio_Speech_Actors_01-24/
 *.wav
