@@ -8,9 +8,9 @@ venv/
 .venv/
 env/
 
-# VS Code settings
+# VSCode Settings
 .vscode/
 
-# Large audio datasets
+# RAVDESS files
 Audio_Speech_Actors_01-24/
 *.wav
