@@ -20,12 +20,13 @@ emotionIntensityList = ['neutralLow', 'calmLow', 'calmHigh', 'happyLow', 'happyH
 setScoringStyle = 'validationLL' # 'validationAccuracy' for accuracy with the validation set, 'validationLL' for TLL with validation set, 'TLL' for highest total log likelyhood of the model itself
 covarianceType = 'diag' # 'full' or 'diag'
 gaussianCollapseThreshold = 5 # maximum number of data points a gaussian must have to be considered "collapsed" and cast aside
-forceAllKValue = 0 # 0 for off, any number to force the K value for every emotion
+forceAllKValue = 0 # 0 for off, any number to force the K value for every emotion; don't do this
 complexityPenaltyMultiplier = 1 #used for BIC calculation
 rngSeed = 0
 separateIntensities = False #NOT SUPPORTED! WILL CRASH IN MANY PLACES!
 usingPCA = False
 numPCADimensions = 15
+
 PCA = None
 Scaler = None
 effectiveNumParams = numPCADimensions if usingPCA else VCP.numParams
@@ -448,7 +449,7 @@ def findOptimalNumGaussians(emotion):
                     print(f"Trial {trial+1} rejected due to collapsed component.")
                     if trial == maxKTestTrialNum - 1:
                         allBICs.append(np.inf)
-                        print(f"No non-collapsed model of {emotion} found with K value {K}.")
+                        print(f"Not enough non-collapsed models of {emotion} found with K value {K}.")
                         break
                     trial += 1
                     continue

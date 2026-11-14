@@ -381,27 +381,3 @@ def setNumSegments(newNumSegments):
     if numSegments != newNumSegments:    
         numSegments = newNumSegments
         numParamsChanged = True
-
-"""
-parameters:
-
-- F0 (pitch):
-    - mean
-    - std
-    - range
-    - slope (first and second halves)
-- RMS (energy):
-    - mean
-    - std
-- Jitter (cycle-to-cycle variation in pitch)
-- Shimmer (cycle-to-cycle variation in amplitude)
-- Spectral shape (timbre):
-    - MFCCs: first 13
-        - means
-        - stds
-    - Spectral centroid (mean & std)
-    - Spectral rolloff (mean & std)
-- Speech rate (syllables per second of entire clip)
-- Articulation rate (syllables per second while speaking)
-
-"""
