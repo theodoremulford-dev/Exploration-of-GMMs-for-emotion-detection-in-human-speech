@@ -1,3 +1,6 @@
+# Important note: code for the first section was taken from https://towardsdatascience.com/gaussian-mixture-model-clearly-explained-115010f7d4cf/.
+# Code for the second section was generated with AI to create the graph quickly (as it was not associated with any functions of the actual project).
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
