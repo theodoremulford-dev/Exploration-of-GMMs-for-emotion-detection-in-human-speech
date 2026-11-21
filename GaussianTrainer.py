@@ -20,13 +20,12 @@ emotionIntensityList = ['neutralLow', 'calmLow', 'calmHigh', 'happyLow', 'happyH
 setScoringStyle = 'validationLL' # 'validationAccuracy' for accuracy with the validation set, 'validationLL' for TLL with validation set, 'TLL' for highest total log likelyhood of the model itself
 covarianceType = 'diag' # 'full' or 'diag'
 gaussianCollapseThreshold = 5 # maximum number of data points a gaussian must have to be considered "collapsed" and cast aside
-forceAllKValue = 0 # 0 for off, any number to force the K value for every emotion; don't do this
+forceAllKValue = 0 # 0 for off, any number to force the K value for every emotion
 complexityPenaltyMultiplier = 1 #used for BIC calculation
 rngSeed = 0
 separateIntensities = False #NOT SUPPORTED! WILL CRASH IN MANY PLACES!
 usingPCA = False
 numPCADimensions = 15
-
 PCA = None
 Scaler = None
 effectiveNumParams = numPCADimensions if usingPCA else VCP.numParams
@@ -36,13 +35,11 @@ def setNumPCADimensions(newNumPCADimensions):
     if numPCADimensions != newNumPCADimensions:    
         numPCADimensions = newNumPCADimensions
         VCP.numParamsChanged = True
-
 def togglePCA(newPCAState):
     global usingPCA
     if usingPCA != newPCAState:    
         usingPCA = newPCAState
         VCP.numParamsChanged = True
-
 def setRngSeed(newRngSeed):
     global rngSeed
     if rngSeed != newRngSeed:    
@@ -210,7 +207,6 @@ def trainGMMsBestNumGaussians(emotion):
             getBestNumGaussians(e)
         getBestCandidateTrial(emotion=None)
 
-
 optimalNumsGaussians = {'neutral':0, 'calm':0, 'happy':0, 'sad':0, 'angry':0, 'fearful':0, 'disgust':0, 'surprise':0}
 def getBestNumGaussians(emotion):
     if optimalNumsGaussians[emotion] != 0:
@@ -221,7 +217,6 @@ def getBestNumGaussians(emotion):
         print(f"Started finding optimal number of gaussians for {emotion}.")
         optimalNumsGaussians[emotion] = findOptimalNumGaussians(emotion)
         print(f"Finished finding optimal number of gaussians for {emotion}.")
-
 
 validationDataPoints = {}
 allValidationDataPoints = []
@@ -329,7 +324,7 @@ def getBestCandidateTrial(emotion=None):
                     raise RuntimeError(f"40 executions to create a trial without a collapsed gaussian reached for {e}---something's probably not set right.")
             if any(not trialTrainedGaussians[e] for e in emotionList): #check just incase the missing component is not detected during creation
                 raise RuntimeError("At least one emotional model is missing from candidate set.")
-            validationAccuracy, _, _, _, _ = evaluateGMMs(None, currValidationDataPoints, needPCAScaling=False, printProgress=False, gaussians=trialTrainedGaussians)
+            validationAccuracy, _, _, _, _, _ = evaluateGMMs(None, currValidationDataPoints, needPCAScaling=False, printProgress=False, gaussians=trialTrainedGaussians)
             allValidationAccuracies.append(validationAccuracy)
             allGaussians.append(trialTrainedGaussians)
         bestValAccIndex = np.argmax(allValidationAccuracies)
@@ -382,7 +377,7 @@ def evaluateGMMs(actorsToEvaluate, pointsToEvaluate, needPCAScaling, printProgre
             for d, coords in zip(dataPointList, pcaScaledTestingDatapoints):
                 d.pointCoords = coords
             if printProgress: print("Finished PCA transforming all evaluation data.")
-            
+           
     if printProgress: print("Started evaluating GMMs")
     global numCorrectPerEmotion
     numCorrectPerEmotion = {'neutral':[0,0], 'calm':[0,0], 'happy':[0,0], 'sad':[0,0], 'angry':[0,0], 'fearful':[0,0], 'disgust':[0,0], 'surprise':[0,0]}
@@ -390,6 +385,7 @@ def evaluateGMMs(actorsToEvaluate, pointsToEvaluate, needPCAScaling, printProgre
     for e in emotionConfusions:
         emotionConfusions[e] = {'neutral':0, 'calm':0, 'happy':0, 'sad':0, 'angry':0, 'fearful':0, 'disgust':0, 'surprise':0}
     intensityCorrectNums = {"Low":[0,0], "High":[0,0]}
+    genderCorrectNums = [[0,0],[0,0]] #female, male
     numCorrectGuesses = 0
     numDataPoints = len(dataPointList)
     dataPointNumber = 0
@@ -417,18 +413,20 @@ def evaluateGMMs(actorsToEvaluate, pointsToEvaluate, needPCAScaling, printProgre
             emotionGuess = max(wholeEmotionLikelyHoods, key=wholeEmotionLikelyHoods.get)
         else:          
             emotionGuess = max(emotionLikelyhoods, key=emotionLikelyhoods.get)
+        audioInfo = VCP.extractInfoFromPath(d.audio_path)
         if emotionGuess == re.sub(r'(Low|High)$', '', d.emotion):
             numCorrectGuesses += 1
             numCorrectPerEmotion[emotionGuess][0] += 1
             intensityCorrectNums[d.intensity][0] += 1
+            genderCorrectNums[audioInfo["actorNumber"]%2][0] += 1
             if printProgress: print(f"Evaluating GMMs ; progress: {(100*dataPointNumber/numDataPoints):.2f}% ; Guessed correctly! Guess: {emotionGuess}, Correct: {d.emotion}")
         else:
             emotionConfusions[d.emotion][emotionGuess] += 1
             if printProgress: print(f"Evaluating GMMs ; progress: {(100*dataPointNumber/numDataPoints):.2f}% ; Guessed incorrectly. Guess: {emotionGuess}, Correct: {d.emotion}")
         numCorrectPerEmotion[re.sub(r'(Low|High)$', '', d.emotion)][1] += 1
         intensityCorrectNums[d.intensity][1] += 1
-           
-    return (numCorrectGuesses / len(dataPointList)) * 100, numCorrectPerEmotion, numGaussiansPerEmotion, emotionConfusions, intensityCorrectNums #percentage correct, numCorrectPerEmotion[correct, guesses], num guassinas per emotion
+        genderCorrectNums[audioInfo["actorNumber"]%2][1] += 1
+    return (numCorrectGuesses / len(dataPointList)) * 100, numCorrectPerEmotion, numGaussiansPerEmotion, emotionConfusions, intensityCorrectNums, genderCorrectNums #percentage correct, numCorrectPerEmotion[correct, guesses], num guassinas per emotion, …
 
 def findOptimalNumGaussians(emotion):
     validationDataPoints.clear()
@@ -449,7 +447,7 @@ def findOptimalNumGaussians(emotion):
                     print(f"Trial {trial+1} rejected due to collapsed component.")
                     if trial == maxKTestTrialNum - 1:
                         allBICs.append(np.inf)
-                        print(f"Not enough non-collapsed models of {emotion} found with K value {K}.")
+                        print(f"No non-collapsed model of {emotion} found with K value {K}.")
                         break
                     trial += 1
                     continue
@@ -502,7 +500,6 @@ def randomInitializeKMeans(numKMeans, emotion):
         km = KMean(emotion)
         km.means = (dataPointsToClone[i].pointCoords).copy()
 
-
 def runKMeanTrainingLoop(emotion):
     prevMeans = np.array([])
     numIter = 0
@@ -518,7 +515,6 @@ def runKMeanTrainingLoop(emotion):
                 break
         prevMeans = currentMeans
         numIter += 1
-
 
 def initializeGaussiansFromMeans(numGaussians, emotion, inputMeans, inputCovariances): #inputMeans being a 2d array of gaussian# x means
     gmmGaussians = []
@@ -582,7 +578,6 @@ def calculateBIC(emotion, finalTLL): #Bayesian Information Criterion: scores a m
     else: raise RuntimeError("The value of covarianceType was not recognized as an implemented covariance type.")
     return complexityPenaltyMultiplier * numFreeParameters * np.log(numDataPoints) - 2 * finalTLL
 
-
 allPointCoords = {'neutral':None, 'calm':None, 'happy':None, 'sad':None, 'angry':None, 'fearful':None, 'disgust':None, 'surprise':None}
 def ExpectationStep(emotion):
     gaussians = Gaussian.allGaussians[emotion]
@@ -619,7 +614,7 @@ def MaximizationStep(emotion, allResponsibilities):
         else: raise RuntimeError("The value of covarianceType was not recognized as an implemented covariance type.")
         cg.covariances += covarianceRegularization * np.eye(numParams) # prevents determinant becoming zero if it collapses on only a few data points
         cg.weight = float(gTotalResps[g] / numPoints)
-    
+   
 def logProbDensFunc(pointCoords, means, covariances): #probabilityDistributionFunction for a multivariate gaussian distribution; single data point
     pointCoords = np.asarray(pointCoords, dtype=float)
     means = np.asarray(means, dtype=float)
@@ -633,7 +628,7 @@ def logProbDensFuncBatch(allCurrentPointCoords, means, covariances): #multiple d
     numParams = allCurrentPointCoords.shape[1]
     pointDiffs = allCurrentPointCoords - means
     return(logProbDensFuncCalculation(pointDiffs, numParams, covariances, isBatch=True))
-    
+   
 def logProbDensFuncCalculation(pointDiffs, numParams, covariances, isBatch):
     if not isBatch:
         pointDiffs = np.atleast_2d(pointDiffs)

@@ -25,14 +25,16 @@ def testGMMAccuracy():
         print(f"Started training GMMs for {emotion}.")
         GT.trainGMMsBestNumGaussians(emotion) #train the GMMs on exclusively training data
         print(f"Finished training GMMs for {emotion}.")
-    accuracyPercent, ncpe, numGaussiansPerEmotion, emotionConfusions, currentIntensityCorrectNums = GT.evaluateGMMs(GT.actorsForTesting, None, False, printProgress=True)
-    return accuracyPercent, ncpe, numGaussiansPerEmotion, emotionConfusions, currentIntensityCorrectNums
+    accuracyPercent, ncpe, numGaussiansPerEmotion, emotionConfusions, currentIntensityCorrectNums, currentGenderCorrectNums = GT.evaluateGMMs(GT.actorsForTesting, None, False, printProgress=True)
+    return accuracyPercent, ncpe, numGaussiansPerEmotion, emotionConfusions, currentIntensityCorrectNums, currentGenderCorrectNums
+
 
 finalAccuracies = []
 numsCorrectPerEmotion = []
 numsGaussiansPerEmotion = []
 confusionNumsPerEmotion = []
 intensityCorrectNums = [] #not tied with GT.separateIntensities
+genderCorrectNums = []
 
 trialNames = []
 def runTrial(trialName):
@@ -49,18 +51,20 @@ def runTrial(trialName):
         VCP.numParamsChanged = False
     numsCorrectPerEmotion.append([])
     intensityCorrectNums.append({"Low":[0,0], "High":[0,0]}) #correct, total
+    genderCorrectNums.append([[0,0],[0,0]])
     confusionNumsPerEmotion.append({'neutral':{}, 'calm':{}, 'happy':{}, 'sad':{}, 'angry':{}, 'fearful':{}, 'disgust':{}, 'surprise':{}})
     trialNames.append(trialName)
     GT.effectiveNumParams = GT.numPCADimensions if GT.usingPCA else VCP.numParams
    
     print(f"Started trial {trialNames.index(trialName)+1}: {trialName}.")
-    accuracyPercent, ncpe, numGaussiansPerEmotion, emotionConfusions, currentIntensityCorrectNums = testGMMAccuracy()
+    accuracyPercent, ncpe, numGaussiansPerEmotion, emotionConfusions, currentIntensityCorrectNums, currentGenderCorrectNums = testGMMAccuracy()
     finalAccuracies.append(accuracyPercent)
     numsGaussiansPerEmotion.append(numGaussiansPerEmotion)
     for _, v in ncpe.items():
         numsCorrectPerEmotion[trialNum].append([v[0], v[1]])
     confusionNumsPerEmotion[trialNum] = emotionConfusions
     intensityCorrectNums[trialNum] = currentIntensityCorrectNums
+    genderCorrectNums[trialNum] = currentGenderCorrectNums
        
     GT.DataPoint.allDataPoints = {emotion: [] for emotion in GT.DataPoint.allDataPoints} #necessary
     GT.Gaussian.allGaussians = {emotion: [] for emotion in GT.Gaussian.allGaussians}
@@ -80,6 +84,7 @@ def runTrial(trialName):
     print(f"Finished trial {trialNames.index(trialName)+1}: {trialName}.")
     return trialNum
 
+
 usingLargeTrials = False
 finalAccuraciesLarge = []
 numsCorrectPerEmotionLarge = []
@@ -88,7 +93,7 @@ largeTrialTrialNums = []
 numsGaussiansPerEmotionAvgLarge = []
 confusionNumsPerEmotionLarge = []
 intensityCorrectNumsLarge = [] #not related to GT.separateIntensities
-
+genderCorrectNumsLarge = []
 
 def runLargeTrial(trialName):
     global usingLargeTrials
@@ -102,6 +107,7 @@ def runLargeTrial(trialName):
     for e in confusionNumsPerEmotionLarge[-1]:
         confusionNumsPerEmotionLarge[-1][e] = {'neutral':0, 'calm':0, 'happy':0, 'sad':0, 'angry':0, 'fearful':0, 'disgust':0, 'surprise':0}
     intensityCorrectNumsLarge.append({"Low":[0,0], "High":[0,0]}) #correct, total
+    genderCorrectNumsLarge.append([[0,0],[0,0]])
     trialNamesLarge.append(trialName)
     trialNums = []
     print(f"Started trial group {trialNamesLarge.index(trialName)+1}: {trialName}.")
@@ -151,36 +157,18 @@ def runLargeTrial(trialName):
         for k in intensityCorrectNums[t].keys():
             for v in range(len(intensityCorrectNums[t].values())):
                 intensityCorrectNumsLarge[largeTrialNum][k][v] += intensityCorrectNums[t][k][v]
+        for k in range(len(genderCorrectNums[t])):
+            for v in range(len(genderCorrectNums[t])):
+                genderCorrectNumsLarge[largeTrialNum][k][v] += genderCorrectNums[t][k][v]
     for em, v in totalNumsGaussiansPerEmotion.items():
         numsGaussiansPerEmotionAvgLarge[largeTrialNum][em] = float(v) / float(len(trialNums))
-    
+   
     print(f"Trial group final accuracy: {finalAccuraciesLarge[largeTrialNum]:.2f}%")
     print(f"Finished trial group {trialNamesLarge.index(trialName)+1}: {trialName}.")
 
 
 def excludeSpecific(paramsToExclude):
     VCP.setParametersToExclude(baseExclusions + paramsToExclude)
-
-# Trial settings
-
-
-# Available variable settings:
-#   GT.covarianceType = 'diag', 'full' - sets covariance type
-#   GT.togglePCA(False) - toggles Principal Component Analysis (PCA)
-#   GT.setNumPCADimensions(x) - sets the number of dimensions used for PCA
-#   excludeSpecific(["parameter_name",...]) - sets specific parameters to be excluded
-#   baseExclusions = ["parameter_name",...] - works in conjuction with excludeSpecific() by reducing redundant additions when only one or a few exclusions need to change
-#   VCP.setNumMFCCs(x) - sets the number of Mel-Frequency Cepstral Coefficients (MFCCs) to be used as parameters
-#   VCP.setNumSegments(x) - sets the number of segments that a clip is split into for parameter extraction
-#   VCP.setStdCalculationStyle('x') 'individual', 'gender', 'individual_total' - sets parameter normalization style
-#   VCP.setActorNeutralClipStdWeight(x) - sets the weight of neutral clips for parameter normalization for individual_total style (number 0-1 for decimal weight, -1 for non-weighted average)
-#   VCP.setCurrentActorStdWeight(x) - sets the weight of the current actor's clips for parameter normalization for gender style (number 0-1 for decimal weight, -1 for non-weighted average)
-#   GT.setScoringStyle = 'TLL', 'validationLL', 'validationAccuracy' - sets scoring style for trial Gaussians over the validation set
-#   GT.setRngSeed(x) - sets the randomness seed (reset to this value every individual trial)
-#   GT.GMMTolerance = x, GT.GMMMaxIter = x, GT.GMMMinIter = x - sets GMM training tolerance, maximum number of iterations, and minimum number of iterations (all seperate)
-#   GT.KMeanTolerance = x, GT.KMeanMaxIter = x - sets K-Means training tolerance and maximum number of iterations (both seperate)
-#   GT.maxKTestTrialNum = x - sets the maximum number of attempts will be made to get a sufficient number of non-collapsed trials for every number of clusters for each emotion (while finding the optimal number of clusters per emotion)
-#   GT.complexityPenaltyMultiplier = x - sets a multiplier applied during BIC calculation that affects the number of clusters (greater value = greater penalty)
 
 baseExclusions = ["spec_centroid_std", "spec_rolloff_std", "f0_range", "f0_std", "f0_slope_firstHalf", "f0_slope_secondHalf", "spec_centroid_mean", "speechRate", "spec_rolloff_mean"]
 excludeSpecific([])
@@ -193,7 +181,7 @@ VCP.setActorNeutralClipStdWeight(0.589)
 VCP.setNumSegments(3)
 GT.setRngSeed(185)
 
-# Trial running
+
 startTime = datetime.now()
 
 runLargeTrial(f"final best test")
@@ -260,6 +248,8 @@ if usingLargeTrials:
         for e in emotionList:
             print(f"{e}: {numsGaussiansPerEmotionAvgLarge[largeTrialIndex][e]},  ", end="")
         print("\n")
+        print(f"Male final accuracy: {(100*(genderCorrectNumsLarge[largeTrialIndex][1][0] / genderCorrectNumsLarge[largeTrialIndex][1][1])):.2f}%") #don't have to worry about dividing by zero here
+        print(f"Female final accuracy: {(100*(genderCorrectNumsLarge[largeTrialIndex][0][0] / genderCorrectNumsLarge[largeTrialIndex][0][1])):.2f}%")
         print(f"Low intensity final accuracy: {(100*(intensityCorrectNumsLarge[largeTrialIndex]["Low"][0] / intensityCorrectNumsLarge[largeTrialIndex]["Low"][1])):.2f}%") #don't have to worry about dividing by zero here
         print(f"High intensity final accuracy: {(100*(intensityCorrectNumsLarge[largeTrialIndex]["High"][0] / intensityCorrectNumsLarge[largeTrialIndex]["High"][1])):.2f}%")
         print(f"Overall final accuracy: {finalAccuraciesLarge[largeTrialIndex]:.2f}%")
@@ -269,7 +259,7 @@ if usingLargeTrials:
         print(f"Trial group {largeTrialIndex + 1}: {largeTrialName} - Final accuracy: {finalAccuraciesLarge[largeTrialIndex]:.2f}%")
     bestIndex = finalAccuraciesLarge.index(max(finalAccuraciesLarge))
     print(f"Best trial: Trial {bestIndex+1}: {trialNamesLarge[bestIndex]} - Final accuracy: {finalAccuraciesLarge[bestIndex]:.2f}%")
-        
+       
 else: #not updated to print all analysis types (e.g. confusions, per-intensity final accuracies)
     for trialIndex, trialName in enumerate(trialNames):
         print(f"Trial {trialIndex+1}: {trialName}")
